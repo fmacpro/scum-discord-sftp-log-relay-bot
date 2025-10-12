@@ -1,0 +1,14 @@
+{
+  "1": {
+    "username": "alpha",
+    "lastLogin": "2025-09-02T00:00:00.000Z"
+  },
+  "2": {
+    "username": "beta",
+    "lastLogin": "2025-09-01T00:00:00.000Z"
+  },
+  "3": {
+    "username": "gamma",
+    "lastLogin": "2025-08-30T00:00:00.000Z"
+  }
+}

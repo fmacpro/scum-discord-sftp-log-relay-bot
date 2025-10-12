@@ -1,0 +1,3 @@
+# Ignore cached user data
+*
+!.gitignore
