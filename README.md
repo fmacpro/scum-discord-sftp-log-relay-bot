@@ -2,6 +2,32 @@
 
 A Node.js application that tails SCUM server log files over SFTP and relays activity to Discord channels. The bot listens for login, chat, and admin command events, posts them to configured channels, and provides slash commands for player registration and server status checks via the BattleMetrics API. Player records are created automatically the first time a user logs into the server and track whether the player is currently online or has registered their Discord account.
 
+## Features
+
+- Streams SCUM login, logout, chat, admin command, and kill feed events from remote log files to dedicated Discord channels in real time.
+- Automatically tracks player state, verifies members through chat tokens, and assigns roles/nicknames once a Discord user links their account.
+- Provides admin-friendly snapshots of server population and recent activity through slash commands.
+
+### Slash Commands
+
+| Command          | Access Level              | Purpose                                                                 |
+| ---------------- | ------------------------- | ----------------------------------------------------------------------- |
+| `/register`      | Anyone in the guild       | Sends the user a DM with a one-time token used to link their SCUM name. |
+| `/serverstatus`  | Anyone in the guild       | Shows the SCUM server status via the BattleMetrics API.                 |
+| `/players`       | Requires scum admins role | Lists all known players sorted by last login time.                      |
+| `/activeplayers` | Requires scum admins role | Lists players active within the last hour.                              |
+
+### Discord Channels
+
+| Channel Purpose          | Feed Contents                                                                  | Suggested Visibility                  |
+| ------------------------ | ------------------------------------------------------------------------------ | ------------------------------------ |
+| Admin logins feed        | Login/logout lines from `login_*.log`, including coordinates and IP addresses. | Admin-only (contains sensitive data) |
+| Admin chat feed          | In-game chat captured from `chat_*.log`, plus registration confirmations.      | Admin-only (may expose player info)  |
+| Admin command feed       | `admin_*.log` entries showing commands issued via the server console.          | Admin-only                            |
+| Kill feed                | `kill_*.log` summaries detailing victim, killer, and weapon.                   | Public (optional showcase channel)   |
+
+Create dedicated text channels for each feed so the bot can keep the data separated and permissioned appropriately. Only the kill feed is intended for a public-facing audience; the other channels often reveal IP addresses, coordinates, or admin actions and should remain restricted to trusted staff.
+
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/en/download) v18 or later
