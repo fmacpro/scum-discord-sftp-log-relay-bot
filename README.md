@@ -43,6 +43,7 @@ The `.env` file configures both the SFTP connection and Discord integration. The
 | `DISCORD_ADMIN_LOGINS_FEED_ID`   | Channel ID for login/logout notifications.                                                  |
 | `DISCORD_ADMIN_CHAT_FEED_ID`     | Channel ID for chat messages.                                                               |
 | `DISCORD_ADMIN_COMMANDS_FEED_ID` | Channel ID for admin command logs.                                                          |
+| `DISCORD_KILL_FEED_ID`           | Channel ID for kill feed notifications.                                                     |
 | `DISCORD_SCUM_ROLE`              | Name of the role granted to verified players.                                               |
 | `DISCORD_SCUM_ADMINS_ROLE`       | Name of the role allowed to use admin-only commands.                                        |
 | `SEND_TO_DISCORD`                | Set to `true` to send messages to Discord; otherwise output remains local.                  |
@@ -52,8 +53,8 @@ The `.env` file configures both the SFTP connection and Discord integration. The
 1. **Create a Discord application and bot:** Visit the [Discord Developer Portal](https://discord.com/developers/applications), create a new application, then use the **Bot** tab to add a bot user. The bot's token becomes `DISCORD_BOT_TOKEN` ([docs](https://discord.com/developers/docs/getting-started#configuring-a-bot)).
 2. **Grab the client ID:** On the application's **General Information** page, copy the **Application ID** and set it as `DISCORD_CLIENT_ID` ([docs](https://discord.com/developers/docs/getting-started#creating-an-app)).
 3. **Enable Developer Mode:** In Discord, open **User Settings → Advanced** and enable **Developer Mode** to allow copying IDs ([guide](https://support.discord.com/hc/en-us/articles/206346498-What-is-Developer-Mode-)).
-4. **Create the target channels:** In your server, create channels for logins, chat, and admin command logs if they don't already exist.
-5. **Collect IDs from your server:** With Developer Mode enabled, right-click your server icon to copy the **Server ID** for `DISCORD_GUILD_ID`. Right-click the channels you created to copy `DISCORD_ADMIN_LOGINS_FEED_ID`, `DISCORD_ADMIN_CHAT_FEED_ID`, and `DISCORD_ADMIN_COMMANDS_FEED_ID`.
+4. **Create the target channels:** In your server, create channels for logins, chat, admin command logs, and the kill feed if they don't already exist.
+5. **Collect IDs from your server:** With Developer Mode enabled, right-click your server icon to copy the **Server ID** for `DISCORD_GUILD_ID`. Right-click the channels you created to copy `DISCORD_ADMIN_LOGINS_FEED_ID`, `DISCORD_ADMIN_CHAT_FEED_ID`, `DISCORD_ADMIN_COMMANDS_FEED_ID`, and `DISCORD_KILL_FEED_ID`.
 6. **Create the SCUM role:** In **Server Settings → Roles**, create or choose a role that the bot will assign to verified players ([role management docs](https://support.discord.com/hc/en-us/articles/214836687-Role-Management-101)).
 7. **Create the scum admins role:** Create or choose a role for administrators allowed to run admin-only commands.
 
@@ -76,6 +77,7 @@ DISCORD_GUILD_ID=123456789012345678
 DISCORD_ADMIN_LOGINS_FEED_ID=987654321098765432
 DISCORD_ADMIN_CHAT_FEED_ID=987654321098765433
 DISCORD_ADMIN_COMMANDS_FEED_ID=987654321098765434
+DISCORD_KILL_FEED_ID=987654321098765435
 DISCORD_SCUM_ROLE="scummembers"
 DISCORD_SCUM_ADMINS_ROLE="scumadmins"
 SEND_TO_DISCORD=true

@@ -35,6 +35,7 @@ export const config = {
     admin_logins_feed_id: process.env.DISCORD_ADMIN_LOGINS_FEED_ID,
     admin_chat_feed_id: process.env.DISCORD_ADMIN_CHAT_FEED_ID,
     admin_commands_feed_id: process.env.DISCORD_ADMIN_COMMANDS_FEED_ID,
+    kill_feed_id: process.env.DISCORD_KILL_FEED_ID,
     scum_member_role: process.env.DISCORD_SCUM_ROLE,
     scum_admins_role: process.env.DISCORD_SCUM_ADMINS_ROLE,
   }

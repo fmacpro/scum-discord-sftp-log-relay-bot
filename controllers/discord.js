@@ -6,6 +6,8 @@ import { getFormattedPlayers, getFormattedOnlinePlayers } from './players.js';
 import crypto from 'crypto';
 import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } from 'discord.js';
 
+const DISCORD_MAX_CONTENT_LENGTH = 2000;
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -17,6 +19,8 @@ const client = new Client({
 });
 
 const activeTokens = new Map(); // token => { userId, timeout }
+const recentDiscordMessages = new Map(); // channelId => { queue: [], set: Set }
+const MAX_RECENT_DISCORD_MESSAGES = 100;
 
 // SLASH COMMAND: /register
 const commands = [
@@ -96,7 +100,19 @@ export async function startDiscordBot() {
         const content = lines.length === 0
           ? `${header}No player data available.`
           : `${header}${lines.join('\n')}`;
-        await interaction.reply({ content, ephemeral: true });
+        const messages = splitIntoDiscordMessages(content);
+
+        if (messages.length === 0) {
+          await interaction.reply({ content: header.trimEnd(), ephemeral: true });
+          return;
+        }
+
+        await interaction.reply({ content: messages[0], ephemeral: true });
+
+        for (const messageContent of messages.slice(1)) {
+          if (messageContent.length === 0) continue;
+          await interaction.followUp({ content: messageContent, ephemeral: true });
+        }
       } catch (err) {
         console.error('❌ Error loading players:', err.message);
         await interaction.reply({ content: '❌ Unable to load players.', ephemeral: true });
@@ -117,7 +133,19 @@ export async function startDiscordBot() {
         const content = lines.length === 0
           ? `${header}No active players found.`
           : `${header}${lines.join('\n')}`;
-        await interaction.reply({ content, ephemeral: true });
+        const messages = splitIntoDiscordMessages(content);
+
+        if (messages.length === 0) {
+          await interaction.reply({ content: header.trimEnd(), ephemeral: true });
+          return;
+        }
+
+        await interaction.reply({ content: messages[0], ephemeral: true });
+
+        for (const messageContent of messages.slice(1)) {
+          if (messageContent.length === 0) continue;
+          await interaction.followUp({ content: messageContent, ephemeral: true });
+        }
       } catch (err) {
         console.error('❌ Error loading active players:', err.message);
         await interaction.reply({ content: '❌ Unable to load active players.', ephemeral: true });
@@ -191,6 +219,64 @@ async function setUserNickname(member, username) {
   }
 }
 
+export function splitIntoDiscordMessages(content, maxLength = DISCORD_MAX_CONTENT_LENGTH) {
+  if (typeof content !== 'string') {
+    content = String(content);
+  }
+
+  if (content.length <= maxLength) {
+    return [content];
+  }
+
+  const messages = [];
+  let remaining = content;
+
+  while (remaining.length > maxLength) {
+    let splitIndex = remaining.lastIndexOf('\n', maxLength);
+
+    if (splitIndex <= 0) {
+      splitIndex = maxLength;
+    }
+
+    const chunk = remaining.slice(0, splitIndex);
+    messages.push(chunk);
+
+    remaining = remaining.slice(splitIndex);
+    if (remaining.startsWith('\n')) {
+      remaining = remaining.slice(1);
+    }
+  }
+
+  if (remaining.length > 0) {
+    messages.push(remaining);
+  }
+
+  return messages;
+}
+
+function shouldEmitDiscordMessage(channelId, content) {
+  if (!channelId || !content) return true;
+  let cache = recentDiscordMessages.get(channelId);
+  if (!cache) {
+    cache = { queue: [], set: new Set() };
+    recentDiscordMessages.set(channelId, cache);
+  }
+
+  const key = content.trim();
+  if (cache.set.has(key)) {
+    return false;
+  }
+
+  cache.set.add(key);
+  cache.queue.push(key);
+  if (cache.queue.length > MAX_RECENT_DISCORD_MESSAGES) {
+    const removed = cache.queue.shift();
+    cache.set.delete(removed);
+  }
+
+  return true;
+}
+
 export async function sendToDiscord(content, channelId) {
   if (config.discord.send_to_discord !== "true") return;
 
@@ -206,7 +292,24 @@ export async function sendToDiscord(content, channelId) {
       return;
     }
 
-    await channel.send(content);
+    const messages = splitIntoDiscordMessages(content);
+    if (messages.length > 1) {
+      console.warn(`[DISCORD] Message exceeded ${DISCORD_MAX_CONTENT_LENGTH} characters. Sending in ${messages.length} parts.`);
+    }
+
+    let sentCount = 0;
+    for (const messageContent of messages) {
+      if (messageContent.length === 0) continue;
+      if (!shouldEmitDiscordMessage(channelId, messageContent)) {
+        console.warn(`[DISCORD] Suppressed duplicate message for channel ${channelId}.`);
+        continue;
+      }
+      await channel.send(messageContent);
+      sentCount++;
+    }
+    if (sentCount === 0) {
+      console.warn(`[DISCORD] All message parts were suppressed as duplicates for channel ${channelId}.`);
+    }
   } catch (err) {
     console.error('[DISCORD ERROR]', err.message);
   }

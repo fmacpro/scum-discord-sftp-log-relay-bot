@@ -83,3 +83,33 @@ export function parseLoginLogoutLogLine(line) {
   };
 }
 
+export function parseKillLogLine(line) {
+  line = line.trim();
+
+  const regex = /^(\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}):\s+Died:\s+([^()]+?)\s+\(([^)]+)\),\s+Killer:\s+([^()]+?)\s+\(([^)]+)\)\s+Weapon:\s+(.+?)(?:\s+[A-Z](?::)?\[.*)?$/;
+
+  const match = line.match(regex);
+  if (!match) {
+    return null;
+  }
+
+  const [
+    ,
+    timestamp,
+    victimName,
+    victimId,
+    killerName,
+    killerId,
+    weapon
+  ] = match;
+
+  return {
+    timestamp,
+    victimName: victimName.trim(),
+    victimId: victimId.trim(),
+    killerName: killerName.trim(),
+    killerId: killerId.trim(),
+    weapon: weapon.trim().replace(/\s+[A-Z](?::)?\[.*$/, '')
+  };
+}
+
