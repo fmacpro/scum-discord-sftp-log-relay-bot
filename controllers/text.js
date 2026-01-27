@@ -30,25 +30,6 @@ export function parseChatLogLine(line) {
   };
 }
 
-export function parseCleanedChatLogLine(line) {
-  line = line.trim();
-
-  const regex = /^([^()]+)\s+\((\d+)\)\s+(.+)$/;
-
-  const match = line.match(regex);
-  if (!match) {
-    return null;
-  }
-
-  const [, username, steamId, messageText] = match;
-
-  return {
-    steamId,
-    username: username.trim(),
-    messageText
-  };
-}
-
 export function parseLoginLogoutLogLine(line) {
   line = line.trim();
 
@@ -112,4 +93,3 @@ export function parseKillLogLine(line) {
     weapon: weapon.trim().replace(/\s+[A-Z](?::)?\[.*$/, '')
   };
 }
-

@@ -1,5 +1,5 @@
 import { config } from './../config.js';
-import { sendToDiscord } from './discord.js';
+import { handleRegistrationTokenMessage, sendToDiscord } from './discord.js';
 import SftpClient from 'ssh2-sftp-client';
 import readline from 'readline';
 import iconv from 'iconv-lite';
@@ -92,6 +92,7 @@ function handleLogLine(prefix, file, line) {
       const formatted = `${data.username} (${data.steamId}) ${data.messageText}`;
       console.log(`[CHAT ${file}] ${formatted}`);
       sendToDiscord(formatted, config.discord.admin_chat_feed_id);
+      handleRegistrationTokenMessage(data);
       break;
     }
     case 'kill_': {
@@ -329,5 +330,4 @@ process.on('SIGINT', async () => {
   catch { /* ignore error */ }
   process.exit(0);
 });
-
 

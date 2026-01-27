@@ -1,23 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseChatLogLine, parseCleanedChatLogLine, parseKillLogLine } from '../controllers/text.js';
-
-test('parseCleanedChatLogLine parses valid line', () => {
-  const line = 'PlayerOne (12345678901234567) Hello world';
-  const result = parseCleanedChatLogLine(line);
-  assert.deepStrictEqual(result, {
-    steamId: '12345678901234567',
-    username: 'PlayerOne',
-    messageText: 'Hello world'
-  });
-});
-
-test('parseCleanedChatLogLine returns null on invalid line', () => {
-  assert.strictEqual(parseCleanedChatLogLine('invalid'), null);
-});
+import { parseChatLogLine, parseKillLogLine } from '../controllers/text.js';
 
 test('parseChatLogLine returns null on invalid line', () => {
   assert.strictEqual(parseChatLogLine('bad'), null);
+});
+
+test('parseChatLogLine parses valid chat entries', () => {
+  const line = "2025.10.25-15.39.01: '76561198326745502:Barry(123)' 'Hello world'";
+  const result = parseChatLogLine(line);
+  assert.deepStrictEqual(result, {
+    timestamp: '2025.10.25-15.39.01',
+    steamId: '76561198326745502',
+    username: 'Barry',
+    messageText: 'Hello world'
+  });
 });
 
 test('parseKillLogLine parses kill log entries', () => {
@@ -36,4 +33,3 @@ test('parseKillLogLine parses kill log entries', () => {
 test('parseKillLogLine returns null on invalid line', () => {
   assert.strictEqual(parseKillLogLine('not a kill log'), null);
 });
-
