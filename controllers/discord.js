@@ -1,6 +1,5 @@
 import { config } from './../config.js';
 import { saveUserRegistration } from './cache.js';
-import { parseCleanedChatLogLine } from './text.js';
 import { getScumServerStatus } from './serverStatus.js';
 import { getFormattedPlayers, getFormattedOnlinePlayers } from './players.js';
 import crypto from 'crypto';
@@ -61,7 +60,7 @@ export async function startDiscordBot() {
 
       try {
         await interaction.reply({ content: '✅ Check your DMs for your registration token.', ephemeral: true });
-        await interaction.user.send(`🔐 Your registration token is:\n\`${token}\`\nPaste this into scum in game local chat (T)`);
+        await interaction.user.send(`🔐 Your registration token is:\n\`${token}\`\nPaste this into SCUM in-game chat.`);
 
         const timeout = setTimeout(() => {
           activeTokens.delete(token);
@@ -149,57 +148,6 @@ export async function startDiscordBot() {
       } catch (err) {
         console.error('❌ Error loading active players:', err.message);
         await interaction.reply({ content: '❌ Unable to load active players.', ephemeral: true });
-      }
-    }
-  });
-
-  // HANDLE CONFIRMATION MESSAGES FROM THE BOT ITSELF
-  client.on('messageCreate', async message => {
-    // Only handle messages from the bot in the watched channel
-    if (message.author.id !== client.user.id) return;
-    if (message.channel.id !== config.discord.admin_chat_feed_id) return;
-
-    // Scan message content for known tokens
-    for (const [token, data] of activeTokens.entries()) {
-      if (message.content.includes(token)) {
-        const { userId, timeout } = data;
-        try {
-          const guild = message.guild;
-          const member = await guild.members.fetch(userId);
-          const role = guild.roles.cache.find(r => r.name === config.discord.scum_member_role);
-
-          // 1. Parse line and set nickname
-          const user = parseCleanedChatLogLine(message.content);
-          if (!user) {
-            console.warn(`[TOKEN VERIFY] Unable to parse user details for token ${token}`);
-            await message.reply(`❌ Unable to parse user information for <@${userId}>.`);
-            continue;
-          }
-          await setUserNickname(member, user.username);
-
-          // 2. Assign role
-          if (role) {
-            await member.roles.add(role);
-          } else {
-            console.warn(`⚠️ Role "${config.discord.scum_member_role}" not found.`);
-          }
-
-          // 3. Save user to persistent cache
-          saveUserRegistration(member, user, token);
-
-          // 4. Confirm in the channel
-          await message.reply(`✅ <@${userId}> (${user.username}:${user.steamId}) has been verified and given the ${config.discord.scum_member_role} role.`);
-
-          // Cleanup token
-          clearTimeout(timeout);
-          activeTokens.delete(token);
-          console.log(`[TOKEN VERIFIED] ${member.user.tag} registered as ${user.username}.`);
-        } catch (err) {
-          console.error('❌ Error verifying user:', err.message);
-          await message.reply(`❌ Something went wrong verifying <@${userId}>. Please contact an admin.`);
-        }
-
-        break;
       }
     }
   });
@@ -315,6 +263,68 @@ export async function sendToDiscord(content, channelId) {
   }
 }
 
+export async function handleRegistrationTokenMessage(chatData) {
+  if (!botReady) {
+    console.warn('[DISCORD] Bot not ready yet for registration tokens.');
+    return false;
+  }
+
+  if (!chatData?.messageText) {
+    return false;
+  }
+
+  for (const [token, data] of activeTokens.entries()) {
+    if (!chatData.messageText.includes(token)) {
+      continue;
+    }
+
+    const { userId, timeout } = data;
+
+    try {
+      const guild = await client.guilds.fetch(config.discord.guild_id);
+      const member = await guild.members.fetch(userId);
+      const role = guild.roles.cache.find(r => r.name === config.discord.scum_member_role);
+
+      await setUserNickname(member, chatData.username);
+
+      if (role) {
+        await member.roles.add(role);
+      } else {
+        console.warn(`⚠️ Role "${config.discord.scum_member_role}" not found.`);
+      }
+
+      saveUserRegistration(member, chatData, token);
+
+      try {
+        await member.send(
+          `✅ You are registered as ${chatData.username} (${chatData.steamId}). You now have the ${config.discord.scum_member_role} role.`
+        );
+      } catch (dmError) {
+        console.warn(`⚠️ Unable to DM ${member.user.tag} registration confirmation: ${dmError.message}`);
+      }
+
+      await sendToDiscord(
+        `✅ <@${userId}> (${chatData.username}:${chatData.steamId}) has been verified and given the ${config.discord.scum_member_role} role.`,
+        config.discord.admin_chat_feed_id
+      );
+
+      clearTimeout(timeout);
+      activeTokens.delete(token);
+      console.log(`[TOKEN VERIFIED] ${member.user.tag} registered as ${chatData.username}.`);
+      return true;
+    } catch (err) {
+      console.error('❌ Error verifying user:', err.message);
+      await sendToDiscord(
+        `❌ Something went wrong verifying <@${userId}>. Please contact an admin.`,
+        config.discord.admin_chat_feed_id
+      );
+      return false;
+    }
+  }
+
+  return false;
+}
+
 async function registerSlashCommand() {
   try {
     await rest.put(
@@ -326,4 +336,3 @@ async function registerSlashCommand() {
     console.error('❌ Error registering command:', err);
   }
 }
-
