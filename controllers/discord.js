@@ -37,7 +37,7 @@ const commands = [
     .toJSON(),
   new SlashCommandBuilder()
     .setName('activeplayers')
-    .setDescription('Lists players active in the last hour')
+    .setDescription('Lists players currently logged in')
     .toJSON(),
 ];
 

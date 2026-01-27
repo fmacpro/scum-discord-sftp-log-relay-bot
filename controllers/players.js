@@ -35,7 +35,6 @@ export function timeAgo(dateStr, now = Date.now()) {
 export function isPlayerOnline(player, now = Date.now()) {
   if (!player.lastLogin) return false;
   const lastLogin = new Date(player.lastLogin).getTime();
-  if (now - lastLogin > 60 * 60 * 1000) return false;
   if (player.lastLogout) {
     const lastLogout = new Date(player.lastLogout).getTime();
     if (lastLogout >= lastLogin) return false;
@@ -44,7 +43,12 @@ export function isPlayerOnline(player, now = Date.now()) {
 }
 
 export function getOnlinePlayers(players, now = Date.now()) {
-  return players.filter(p => isPlayerOnline(p, now));
+  const cutoff = now - 24 * 60 * 60 * 1000;
+  return players.filter(p => {
+    if (!isPlayerOnline(p, now)) return false;
+    const lastLogin = new Date(p.lastLogin).getTime();
+    return lastLogin >= cutoff;
+  });
 }
 
 export async function getFormattedPlayers(filePath = defaultPlayersFile, now = Date.now()) {
