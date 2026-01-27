@@ -25,7 +25,8 @@ test('getOnlinePlayers filters players correctly', () => {
     { username: 'online1', lastLogin: '2025-09-02T00:30:00.000Z', lastLogout: '2025-09-01T23:00:00.000Z' },
     { username: 'offline1', lastLogin: '2025-09-02T00:30:00.000Z', lastLogout: '2025-09-02T00:45:00.000Z' },
     { username: 'online2', lastLogin: '2025-09-02T00:30:00.000Z' },
-    { username: 'offline2', lastLogin: '2025-09-01T22:00:00.000Z', lastLogout: '2025-09-01T23:00:00.000Z' }
+    { username: 'offline2', lastLogin: '2025-09-01T22:00:00.000Z', lastLogout: '2025-09-01T23:00:00.000Z' },
+    { username: 'stale', lastLogin: '2025-08-31T00:00:00.000Z' }
   ];
   const online = getOnlinePlayers(players, now);
   assert.deepEqual(online.map(p => p.username), ['online1', 'online2']);
