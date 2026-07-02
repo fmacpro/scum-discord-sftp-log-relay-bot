@@ -3,7 +3,7 @@ import { saveUserRegistration } from './cache.js';
 import { getScumServerStatus } from './serverStatus.js';
 import { getFormattedPlayers, getFormattedOnlinePlayers } from './players.js';
 import crypto from 'crypto';
-import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } from 'discord.js';
+import { Client, GatewayIntentBits, Partials, REST, Routes, SlashCommandBuilder } from 'discord.js';
 
 const DISCORD_MAX_CONTENT_LENGTH = 2000;
 
@@ -14,7 +14,7 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.DirectMessages,
   ],
-  partials: ['CHANNEL'], // Needed for DMs
+  partials: [Partials.Channel], // Needed for DMs
 });
 
 const activeTokens = new Map(); // token => { userId, timeout }
@@ -225,7 +225,7 @@ function shouldEmitDiscordMessage(channelId, content) {
   return true;
 }
 
-export async function sendToDiscord(content, channelId) {
+export async function sendToDiscord(content, channelId, { suppressDuplicates = true } = {}) {
   if (config.discord.send_to_discord !== "true") return;
 
   if (!botReady) {
@@ -248,7 +248,7 @@ export async function sendToDiscord(content, channelId) {
     let sentCount = 0;
     for (const messageContent of messages) {
       if (messageContent.length === 0) continue;
-      if (!shouldEmitDiscordMessage(channelId, messageContent)) {
+      if (suppressDuplicates && !shouldEmitDiscordMessage(channelId, messageContent)) {
         console.warn(`[DISCORD] Suppressed duplicate message for channel ${channelId}.`);
         continue;
       }

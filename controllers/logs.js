@@ -67,7 +67,7 @@ function clearProcessedLinesForFile(file) {
 }
 
 function handleLogLine(prefix, file, line) {
-  if (shouldSkipLine(file, line)) {
+  if (prefix !== 'login_' && shouldSkipLine(file, line)) {
     return;
   }
 
@@ -119,7 +119,7 @@ function handleLogLine(prefix, file, line) {
       }
       const formatted = `${data.username} (${data.steamId}:${data.ip}) ${data.action} at coordinates X:${data.loggedX} Y:${data.loggedY} Z:${data.loggedZ}`;
       console.log(`[LOGIN ${file}] ${formatted}`);
-      sendToDiscord(formatted, config.discord.admin_logins_feed_id);
+      sendToDiscord(formatted, config.discord.admin_logins_feed_id, { suppressDuplicates: false });
 
       if (data.action === 'logged in') {
         recordPlayerLogin(data);
@@ -330,4 +330,3 @@ process.on('SIGINT', async () => {
   catch { /* ignore error */ }
   process.exit(0);
 });
-
