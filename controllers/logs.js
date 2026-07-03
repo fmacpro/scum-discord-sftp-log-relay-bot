@@ -284,12 +284,20 @@ export async function connectAndWatch() {
   }
 }
 
+let reconnectTimer = null;
+
 async function reconnectWithBackoff() {
   if (reconnecting) return;
   reconnecting = true;
   connected = false;
   connecting = false;
   stopAllTimers();
+
+  // Cancel any pending reconnect timer
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
 
   // Always create a fresh SFTP client to avoid half-closed state issues
   try {
@@ -309,7 +317,8 @@ async function reconnectWithBackoff() {
   console.log(`[RECONNECTING] Retrying in ${(delay / 1000).toFixed(3)}s...`);
 
   lastReconnectTime = Date.now();
-  setTimeout(async () => {
+  reconnectTimer = setTimeout(async () => {
+    reconnectTimer = null;
     reconnecting = false; // always clear
     await connectAndWatch();
   }, delay);
@@ -318,11 +327,15 @@ async function reconnectWithBackoff() {
 }
 
 function attachSftpListeners() {
-  sftp.on('end', () => { console.warn('Global end listener: end event raised'); reconnectWithBackoff(); });
-  sftp.on('close', () => { console.warn('Global close listener: close event raised'); reconnectWithBackoff(); });
+  // Increase max listeners on the underlying SSH2 client to suppress warnings on reconnect
+  if (sftp.client && typeof sftp.client.setMaxListeners === 'function') {
+    sftp.client.setMaxListeners(20);
+  }
+  sftp.on('end', () => { console.warn('[SFTP] end event raised'); reconnectWithBackoff(); });
+  sftp.on('close', () => { console.warn('[SFTP] close event raised'); reconnectWithBackoff(); });
   sftp.on('error', err => {
     const msg = err.message || '';
-    if (msg.includes('ECONNRESET') || msg.includes('handshake')) {
+    if (msg.includes('ECONNRESET') || msg.includes('handshake') || msg.includes('Keepalive')) {
       console.warn(`[SFTP WARN] ${msg}`);
     } else {
       console.error(`[SFTP ERROR] ${msg}`);

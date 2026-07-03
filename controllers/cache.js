@@ -1,6 +1,7 @@
-import { writeFileSync, readFileSync, mkdirSync, existsSync } from 'fs';
+import { writeFileSync, readFileSync, mkdirSync, existsSync, renameSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
 
 const dataDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'data');
 const cacheFile = join(dataDir, 'players.json');
@@ -14,11 +15,22 @@ if (existsSync(cacheFile)) {
   }
 }
 
+let persistTimeout = null;
+const PERSIST_DEBOUNCE_MS = 500;
+
 function persist() {
-  if (!existsSync(dataDir)) {
-    mkdirSync(dataDir, { recursive: true });
-  }
-  writeFileSync(cacheFile, JSON.stringify(cache, null, 2));
+  // Debounce: coalesce multiple rapid writes into one
+  if (persistTimeout) clearTimeout(persistTimeout);
+  persistTimeout = setTimeout(() => {
+    persistTimeout = null;
+    if (!existsSync(dataDir)) {
+      mkdirSync(dataDir, { recursive: true });
+    }
+    // Atomic write: write to temp file, then rename
+    const tmp = join(dataDir, `players.json.tmp.${crypto.randomBytes(4).toString('hex')}`);
+    writeFileSync(tmp, JSON.stringify(cache, null, 2), 'utf8');
+    renameSync(tmp, cacheFile);
+  }, PERSIST_DEBOUNCE_MS);
 }
 
 /**

@@ -43,6 +43,27 @@ const commands = [
 
 const rest = new REST({ version: '10' }).setToken(config.discord.bot_token);
 let botReady = false;
+let discordReconnectTimer = null;
+
+function scheduleDiscordReconnect() {
+  if (discordReconnectTimer) return; // Already scheduled
+  console.log('[DISCORD] Scheduling reconnect in 10s...');
+  discordReconnectTimer = setTimeout(async () => {
+    discordReconnectTimer = null;
+    try {
+      botReady = false;
+      console.log('[DISCORD] Attempting reconnect...');
+      await client.login(config.discord.bot_token);
+    } catch (err) {
+      console.error('[DISCORD] Reconnect failed:', err.message);
+      // Try again in 30s
+      discordReconnectTimer = setTimeout(() => {
+        discordReconnectTimer = null;
+        scheduleDiscordReconnect();
+      }, 30000);
+    }
+  }, 10000);
+}
 
 export async function startDiscordBot() {
   client.once('ready', () => {
@@ -63,8 +84,18 @@ export async function startDiscordBot() {
   });
 
   client.on('invalidated', () => {
-    console.warn('[DISCORD] Client session invalidated — resetting ready state');
+    console.warn('[DISCORD] Client session invalidated — resetting ready state and reconnecting');
     botReady = false;
+    scheduleDiscordReconnect();
+  });
+
+  client.on('error', err => {
+    console.error('[DISCORD ERROR]', err.message);
+    // Discord.js v14 handles reconnection internally for most errors,
+    // but if botReady was set to false, schedule a manual reconnect
+    if (!botReady) {
+      scheduleDiscordReconnect();
+    }
   });
 
   client.on('interactionCreate', async interaction => {

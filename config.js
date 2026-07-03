@@ -10,7 +10,7 @@ export const config = {
     port: process.env.SFTP_PORT,
     username: process.env.SFTP_USERNAME,
     password: process.env.SFTP_PASSWORD,
-    readyTimeout: 10000,
+    readyTimeout: 20000,
     algorithms: {
       kex: [
         'curve25519-sha256',
@@ -24,8 +24,8 @@ export const config = {
         'ecdh-sha2-nistp521'
       ]
     },
-    keepaliveInterval: 20000,
-    keepaliveCountMax: 3
+    keepaliveInterval: 15000,
+    keepaliveCountMax: 10
   },
   discord: {
     bot_token: process.env.DISCORD_BOT_TOKEN,
