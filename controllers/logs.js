@@ -188,7 +188,8 @@ async function tailFile(prefix) {
       console.log(`[DEBUG ${prefix}] Suppressed tail error: ${err.message}`);
     } else {
       console.error(`[TAIL ERROR for ${prefix}]: ${err.message}`);
-      await reconnectWithBackoff();
+      // Don't reconnect here — the watchdog or next failed operation will handle it.
+      // This prevents rapid reconnect storms from a single bad file.
     }
   } finally {
     prefixLocks.delete(prefix);
@@ -234,16 +235,27 @@ async function startTailLoop() {
   if (tailTimer) clearInterval(tailTimer);
   tailTimer = setInterval(() => {
     for (const prefix of filePrefixes) {
-      tailFile(prefix);
+      tailFile(prefix).catch(err => {
+        console.error(`[TAIL UNCAUGHT ${prefix}]: ${err.message}`);
+      });
     }
   }, pollInterval);
+}
+
+export function getSftpConnected() {
+  return connected;
 }
 
 export async function connectAndWatch() {
   if (connected || connecting) return;
   connecting = true;
   try {
-    await sftp.connect(config.sftp);
+    // Add a connection timeout so we don't hang forever
+    const connectPromise = sftp.connect(config.sftp);
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('SFTP connection timed out after 15s')), 15000)
+    );
+    await Promise.race([connectPromise, timeoutPromise]);
     connected = true;
     reconnecting = false;
     retryDelay = 1000;
@@ -256,12 +268,12 @@ export async function connectAndWatch() {
     if (switchTimer) clearInterval(switchTimer);
     switchTimer = setInterval(checkForNewFiles, checkNewFileInterval);
 
-    // Start watchdog to ensure no hangs
+    // Start watchdog to ensure no hangs — also checks if SFTP is silent for too long
     if (watchdogTimer) clearInterval(watchdogTimer);
     watchdogTimer = setInterval(() => {
       if (!connected && Date.now() - lastReconnectTime > watchdogInterval) {
         console.warn('[WATCHDOG] Forcing reconnect due to inactivity');
-        reconnectWithBackoff(true);
+        reconnectWithBackoff();
       }
     }, watchdogInterval);
   } catch (err) {
@@ -272,26 +284,25 @@ export async function connectAndWatch() {
   }
 }
 
-async function reconnectWithBackoff(forceNewClient = false) {
+async function reconnectWithBackoff() {
   if (reconnecting) return;
   reconnecting = true;
   connected = false;
   connecting = false;
   stopAllTimers();
 
-  try { await sftp.end(); }
-  catch { /* ignore error */ }
-  connectionCount = Math.max(connectionCount - 1, 0);
-  console.log(`[DISCONNECTED] Active SFTP connections: ${connectionCount}`);
-
-  // Always create fresh client after disconnect when requested
-  if (forceNewClient) {
+  // Always create a fresh SFTP client to avoid half-closed state issues
+  try {
     if (typeof sftp.removeAllListeners === 'function') {
       sftp.removeAllListeners();
     }
-    sftp = new SftpClient();
-    attachSftpListeners();
-  }
+    await sftp.end().catch(() => {});
+  } catch { /* ignore error */ }
+  connectionCount = Math.max(connectionCount - 1, 0);
+  console.log(`[DISCONNECTED] Active SFTP connections: ${connectionCount}`);
+
+  sftp = new SftpClient();
+  attachSftpListeners();
 
   const baseDelay = Math.max(retryDelay, minReconnectDelay);
   const delay = baseDelay + Math.floor(Math.random() * 500);

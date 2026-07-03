@@ -32,7 +32,7 @@ export function timeAgo(dateStr, now = Date.now()) {
   return 'just now';
 }
 
-export function isPlayerOnline(player, now = Date.now()) {
+export function isPlayerOnline(player) {
   if (!player.lastLogin) return false;
   const lastLogin = new Date(player.lastLogin).getTime();
   if (player.lastLogout) {

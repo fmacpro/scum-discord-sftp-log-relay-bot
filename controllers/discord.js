@@ -51,6 +51,22 @@ export async function startDiscordBot() {
     registerSlashCommand();
   });
 
+  // Reset botReady on disconnect so we don't keep trying to send to a dead client
+  client.on('disconnect', () => {
+    console.warn('[DISCORD] Client disconnected — resetting ready state');
+    botReady = false;
+  });
+
+  client.on('shardDisconnect', () => {
+    console.warn('[DISCORD] Shard disconnected — resetting ready state');
+    botReady = false;
+  });
+
+  client.on('invalidated', () => {
+    console.warn('[DISCORD] Client session invalidated — resetting ready state');
+    botReady = false;
+  });
+
   client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
@@ -261,6 +277,10 @@ export async function sendToDiscord(content, channelId, { suppressDuplicates = t
   } catch (err) {
     console.error('[DISCORD ERROR]', err.message);
   }
+}
+
+export function getBotReady() {
+  return botReady;
 }
 
 export async function handleRegistrationTokenMessage(chatData) {
