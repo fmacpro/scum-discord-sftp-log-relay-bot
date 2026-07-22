@@ -1,3 +1,6 @@
 node_modules
 cache
 .env
+
+# Development-specific skills (not for public repo)
+.github/skills/release-to-public/

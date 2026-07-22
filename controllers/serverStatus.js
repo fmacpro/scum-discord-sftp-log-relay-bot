@@ -1,39 +1,58 @@
 import { config } from './../config.js';
+import { readPlayers, getOnlinePlayers } from './players.js';
+import net from 'net';
 
-const BATTLEMETRICS_SERVER_ID = config?.scum?.battlemetrics_server_id;
+const SERVER_IP = config?.scum?.server_ip;
+const QUERY_PORT = config?.scum?.query_port ?? 7809;
+const SERVER_NAME = config?.scum?.server_name ?? 'SCUM Server';
+const TCP_TIMEOUT = 5000;
+
+async function checkTcpPort(host, port, timeout = TCP_TIMEOUT) {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    let settled = false;
+
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolve(result);
+    };
+
+    socket.setTimeout(timeout);
+    socket.on('connect', () => finish(true));
+    socket.on('error', () => finish(false));
+    socket.on('timeout', () => finish(false));
+
+    socket.connect(port, host);
+  });
+}
 
 export async function getScumServerStatus() {
   try {
-    const url = `https://api.battlemetrics.com/servers/${BATTLEMETRICS_SERVER_ID}`;
-    const res = await fetch(url, {
-      headers: {
-        'Accept': 'application/vnd.api+json'
-      }
-    });
-
-    if (!res.ok) {
-      throw new Error(`BattleMetrics request failed: ${res.status} ${res.statusText}`);
+    if (!SERVER_IP) {
+      return '⚠️ Server IP is not configured. Set SCUM_SERVER_IP in your .env file.';
     }
 
-    const data = await res.json();
-    const attrs = data?.data?.attributes ?? {};
+    const isOnline = await checkTcpPort(SERVER_IP, QUERY_PORT);
 
-    const name = attrs.name ?? 'Unknown SCUM Server';
-    const statusRaw = attrs.status ?? 'unknown';
-    const players = Number(attrs.players ?? 0);
-    const maxPlayers = Number(attrs.maxPlayers ?? 0);
-    const rank = attrs.rank ?? 'n/a';
-    const ip = attrs.ip ?? config?.scum?.server_ip ?? null;
-    const port = attrs.port ?? config?.scum?.query_port ?? null;
+    if (!isOnline) {
+      return `🔴 **${SERVER_NAME}** is offline or unreachable.\nIP: \`${SERVER_IP}:${QUERY_PORT}\``;
+    }
 
-    const indicator =
-      statusRaw === 'online' ? '🟢' : statusRaw === 'offline' ? '🔴' : '🟡';
-    const bmLink = `https://www.battlemetrics.com/servers/scum/${BATTLEMETRICS_SERVER_ID}`;
+    // Get player count from local data
+    let playerCount = 0;
+    try {
+      const players = await readPlayers();
+      const onlinePlayers = getOnlinePlayers(players);
+      playerCount = onlinePlayers.length;
+    } catch {
+      // If we can't read players.json, just show 0
+    }
 
-    return `${indicator} **[${name}](${bmLink})**
-Players: ${players}/${maxPlayers}
-Rank: ${rank}
-IP: \`${ip ?? 'n/a'}:${port ?? 'n/a'}\``;
+    return `🟢 **${SERVER_NAME}** is online
+Players online: ${playerCount}
+IP: \`${SERVER_IP}:${QUERY_PORT}\``;
   } catch (err) {
     console.error('[SERVER STATUS ERROR]', err?.message || err);
     return '🔴 Server is offline or unreachable.';

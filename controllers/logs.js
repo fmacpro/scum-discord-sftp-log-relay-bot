@@ -68,6 +68,7 @@ function clearProcessedLinesForFile(file) {
 
 function handleLogLine(prefix, file, line) {
   if (prefix !== 'login_' && shouldSkipLine(file, line)) {
+    console.warn(`[DEDUP ${prefix}] Skipped duplicate line in ${file}: ${line.slice(0, 80)}`);
     return;
   }
 
@@ -184,10 +185,29 @@ async function tailFile(prefix) {
       tailState[prefix].bytesRead = totalSize;
     }
   } catch (err) {
-    if (err.message.includes('Unexpected end event')) {
-      console.log(`[DEBUG ${prefix}] Suppressed tail error: ${err.message}`);
+    const msg = err.message || '';
+    if (msg.includes('Unexpected end event')) {
+      console.log(`[DEBUG ${prefix}] Suppressed tail error: ${msg}`);
+    } else if (msg.includes('No such file') || msg.includes('not found') || msg.includes('ENOENT') || msg.includes('does not exist')) {
+      // File was deleted (likely rotated). Reset tail state so checkForNewFiles
+      // can pick up the new file on its next cycle, or try to find it now.
+      console.warn(`[TAIL ${prefix}] File gone (rotated/deleted): ${file}. Resetting tail state.`);
+      clearProcessedLinesForFile(file);
+      delete tailState[prefix];
+      // Try to find the new file immediately instead of waiting for checkForNewFiles
+      try {
+        const latest = await findLatestFile(prefix);
+        if (latest) {
+          tailState[prefix] = { file: latest.path, timestamp: latest.timestamp, bytesRead: latest.size };
+          console.log(`[TAIL ${prefix}] Recovered — now tailing ${latest.name}`);
+        } else {
+          console.warn(`[TAIL ${prefix}] No new ${prefix} file found yet — will retry on next poll.`);
+        }
+      } catch (findErr) {
+        console.error(`[TAIL ${prefix}] Error finding new file: ${findErr.message}`);
+      }
     } else {
-      console.error(`[TAIL ERROR for ${prefix}]: ${err.message}`);
+      console.error(`[TAIL ERROR for ${prefix}]: ${msg}`);
       // Don't reconnect here — the watchdog or next failed operation will handle it.
       // This prevents rapid reconnect storms from a single bad file.
     }
@@ -201,9 +221,19 @@ async function checkForNewFiles() {
   for (const prefix of filePrefixes) {
     try {
       const latest = await findLatestFile(prefix);
-      if (!latest) continue;
+      if (!latest) {
+        // No files found for this prefix at all. If we had a stale tailState
+        // (e.g., from a deleted file), clear it so we don't keep erroring.
+        if (tailState[prefix]) {
+          console.warn(`[CHECK ${prefix}] No ${prefix} files found — clearing stale tail state.`);
+          clearProcessedLinesForFile(tailState[prefix].file);
+          delete tailState[prefix];
+        }
+        continue;
+      }
       const state = tailState[prefix];
-      if (!state || latest.timestamp > state.timestamp) {
+      // Switch if no state yet, or if the latest file is different (by path)
+      if (!state || latest.path !== state.file) {
         if (state && state.file) {
           clearProcessedLinesForFile(state.file);
         }

@@ -1,6 +1,6 @@
 # SCUM Discord SFTP Log Relay Bot
 
-A Node.js application that tails SCUM server log files over SFTP and relays activity to Discord channels. The bot listens for login, chat, and admin command events, posts them to configured channels, and provides slash commands for player registration and server status checks via the BattleMetrics API. Player records are created automatically the first time a user logs into the server and track whether the player is currently online or has registered their Discord account.
+A Node.js application that tails SCUM server log files over SFTP and relays activity to Discord channels. The bot listens for login, chat, and admin command events, posts them to configured channels, and provides slash commands for player registration and server status checks via a TCP port check. Player records are created automatically the first time a user logs into the server and track whether the player is currently online or has registered their Discord account.
 
 ## Features
 
@@ -13,18 +13,18 @@ A Node.js application that tails SCUM server log files over SFTP and relays acti
 | Command          | Access Level              | Purpose                                                                 |
 | ---------------- | ------------------------- | ----------------------------------------------------------------------- |
 | `/register`      | Anyone in the guild       | Sends the user a DM with a one-time token used to link their SCUM name. |
-| `/serverstatus`  | Anyone in the guild       | Shows the SCUM server status via the BattleMetrics API.                 |
+| `/serverstatus`  | Anyone in the guild       | Shows the SCUM server status via a TCP port check.                      |
 | `/players`       | Requires scum admins role | Lists all known players sorted by last login time.                      |
 | `/activeplayers` | Requires scum admins role | Lists players active within the last hour.                              |
 
 ### Discord Channels
 
-| Channel Purpose          | Feed Contents                                                                  | Suggested Visibility                  |
-| ------------------------ | ------------------------------------------------------------------------------ | ------------------------------------ |
-| Admin logins feed        | Login/logout lines from `login_*.log`, including coordinates and IP addresses. | Admin-only (contains sensitive data) |
-| Admin chat feed          | In-game chat captured from `chat_*.log`, plus registration confirmations.      | Admin-only (may expose player info)  |
-| Admin command feed       | `admin_*.log` entries showing commands issued via the server console.          | Admin-only                            |
-| Kill feed                | `kill_*.log` summaries detailing victim, killer, and weapon.                   | Public (optional showcase channel)   |
+| Channel Purpose    | Feed Contents                                                                  | Suggested Visibility                 |
+| ------------------ | ------------------------------------------------------------------------------ | ------------------------------------ |
+| Admin logins feed  | Login/logout lines from `login_*.log`, including coordinates and IP addresses. | Admin-only (contains sensitive data) |
+| Admin chat feed    | In-game chat captured from `chat_*.log`, plus registration confirmations.      | Admin-only (may expose player info)  |
+| Admin command feed | `admin_*.log` entries showing commands issued via the server console.          | Admin-only                           |
+| Kill feed          | `kill_*.log` summaries detailing victim, killer, and weapon.                   | Public (optional showcase channel)   |
 
 Create dedicated text channels for each feed so the bot can keep the data separated and permissioned appropriately. Only the kill feed is intended for a public-facing audience; the other channels often reveal IP addresses, coordinates, or admin actions and should remain restricted to trusted staff.
 
@@ -62,7 +62,9 @@ The `.env` file configures both the SFTP connection and Discord integration. The
 | `SFTP_USERNAME`                  | Username for SFTP authentication.                                                           |
 | `SFTP_PASSWORD`                  | Password for SFTP authentication.                                                           |
 | `SCUM_GAME_LOGS`                 | Remote path to the SCUM log directory.                                                      |
-| `BATTLEMETRICS_SERVER_ID`        | Server ID from [BattleMetrics](https://www.battlemetrics.com/) used by `/serverstatus`.     |
+| `SCUM_SERVER_NAME`               | Display name for the SCUM server shown in `/serverstatus`.                                  |
+| `SCUM_SERVER_IP`                 | IP address of the SCUM server for the TCP port check.                                       |
+| `SCUM_QUERY_PORT`                | Query port for the TCP health check (default: `7809`).                                      |
 | `DISCORD_BOT_TOKEN`              | Bot token from the [Discord Developer Portal](https://discord.com/developers/applications). |
 | `DISCORD_CLIENT_ID`              | Application (client) ID from the Developer Portal.                                          |
 | `DISCORD_GUILD_ID`               | Server ID (guild) where slash commands are registered.                                      |
@@ -95,7 +97,9 @@ SFTP_USERNAME=myuser
 SFTP_PASSWORD=secret
 
 SCUM_GAME_LOGS=/home/scumserver/SCUM/Saved/Logs
-BATTLEMETRICS_SERVER_ID=12345678
+SCUM_SERVER_NAME="My SCUM Server"
+SCUM_SERVER_IP=123.123.123.123
+SCUM_QUERY_PORT=7809
 
 DISCORD_BOT_TOKEN=your_bot_token
 DISCORD_CLIENT_ID=123456789012345678

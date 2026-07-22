@@ -3,7 +3,9 @@ import 'dotenv/config';
 export const config = {
   scum: {
     game_logs_path: process.env.SCUM_GAME_LOGS,
-    battlemetrics_server_id: process.env.BATTLEMETRICS_SERVER_ID
+    server_name: process.env.SCUM_SERVER_NAME,
+    server_ip: process.env.SCUM_SERVER_IP,
+    query_port: parseInt(process.env.SCUM_QUERY_PORT || '7809', 10),
   },
   sftp: {
     host: process.env.SFTP_HOST,

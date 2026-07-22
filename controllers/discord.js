@@ -66,7 +66,7 @@ function scheduleDiscordReconnect() {
 }
 
 export async function startDiscordBot() {
-  client.once('ready', () => {
+  client.once('clientReady', () => {
     console.log(`[BOT READY] Logged in as ${client.user.tag}`);
     botReady = true;
     registerSlashCommand();
@@ -81,6 +81,18 @@ export async function startDiscordBot() {
   client.on('shardDisconnect', () => {
     console.warn('[DISCORD] Shard disconnected — resetting ready state');
     botReady = false;
+  });
+
+  // Discord.js v14 can transparently resume a session without re-emitting clientReady.
+  // We must restore botReady on resume or messages get silently dropped.
+  client.on('shardResume', () => {
+    console.log('[DISCORD] Shard resumed — restoring ready state');
+    botReady = true;
+  });
+
+  client.on('resume', () => {
+    console.log('[DISCORD] Client resumed — restoring ready state');
+    botReady = true;
   });
 
   client.on('invalidated', () => {
@@ -296,7 +308,7 @@ export async function sendToDiscord(content, channelId, { suppressDuplicates = t
     for (const messageContent of messages) {
       if (messageContent.length === 0) continue;
       if (suppressDuplicates && !shouldEmitDiscordMessage(channelId, messageContent)) {
-        console.warn(`[DISCORD] Suppressed duplicate message for channel ${channelId}.`);
+        console.warn(`[DISCORD] Suppressed duplicate message for channel ${channelId}: ${messageContent.slice(0, 80)}`);
         continue;
       }
       await channel.send(messageContent);

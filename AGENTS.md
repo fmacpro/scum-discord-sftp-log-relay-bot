@@ -17,7 +17,7 @@
   - `discord.js` — Discord client setup, slash commands, and message dispatch.
   - `logs.js` — SFTP log file tailing, line parsing, and event routing.
   - `players.js` — Player record management and formatting.
-  - `serverStatus.js` — BattleMetrics API integration for server status.
+  - `serverStatus.js` — TCP port check for server status.
   - `text.js` — Pure parsing functions for SCUM log lines (login, chat, admin, kill).
 - **`config.js`** — Loads and exports environment variables from `.env`.
 - **`data/players.json`** — Persistent store of known players.
